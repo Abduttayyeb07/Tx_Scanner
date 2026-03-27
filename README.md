@@ -13,28 +13,28 @@ TX Hash
   │
   ▼
 ┌───────────────────────┐
-│  Layer 1 — Fetcher     │  Pulls raw data from ZigChain Cosmos RPC
+│  Layer 1 — Fetcher    │  Pulls raw data from ZigChain Cosmos RPC
 └──────────┬────────────┘
            ▼
 ┌───────────────────────┐
-│  Layer 2 — Normalizer  │  Decodes events, transfers, WASM actions,
-│                        │  contract messages into structured JSON
+│  Layer 2 — Normalizer │  Decodes events, transfers, WASM actions,
+│                       │  contract messages into structured JSON
 └──────────┬────────────┘
            ▼
 ┌───────────────────────┐
-│  Layer 3 — Interpreter │  Deterministic rules engine — classifies
-│                        │  tx type, generates warnings, scores complexity
+│  Layer 3 — Interpreter│  Deterministic rules engine — classifies
+│                       │  tx type, generates warnings, scores complexity
 └──────────┬────────────┘
            ▼
 ┌───────────────────────┐
-│  Layer 4 — LLM         │  Translates structured data into a
-│  (Tiered Routing)      │  human-readable explanation (no invention)
-│                        │  simple→⚡fast | moderate→🧠std | complex→🔬powerful
+│  Layer 4 — LLM        │  Translates structured data into a
+│  (Tiered Routing)     │  human-readable explanation (no invention)
+│                       │  simple→⚡fast | moderate→🧠std | complex→🔬powerful
 └──────────┬────────────┘
            ▼
 ┌───────────────────────┐
-│  Query Intelligence    │  TX-aware reasoning gate for follow-up Q&A
-│  Layer                 │  (replaces naive keyword filtering)
+│  Query Intelligence   │  TX-aware reasoning gate for follow-up Q&A
+│  Layer                │  (replaces naive keyword filtering)
 └───────────────────────┘
 ```
 
@@ -42,14 +42,14 @@ TX Hash
 
 ## Key Features
 
-### Tiered Model Routing
-The engine automatically selects the right LLM based on transaction complexity:
-- **Simple** (basic sends, votes) → ⚡ Fast model (cheap, instant)
-- **Moderate** (swaps, staking) → 🧠 Standard model
-- **Complex** (multi-msg, failed contracts) → 🔬 Powerful model (thorough)
+### Single Model
+The engine uses one selected explanation model for all requests:
+- **Default model:** `glm-4.7-flash:latest`
+- Transaction complexity is still computed deterministically for analysis quality and stats
+- Startup warmup only loads the selected production model
 
 ### Model Warmup
-On startup, all model tiers are preloaded into GPU memory so the first user query is instant — no cold-start penalty.
+On startup, only the selected production model is preloaded so the first user query avoids a cold start without paying the cost of loading multiple models.
 
 ### Query Intelligence Layer
 Follow-up questions are validated through a structured reasoning pipeline:
@@ -110,7 +110,7 @@ python main.py
 | `/tx <hash>` | Load and analyze a new transaction |
 | `/raw` | Print the normalized JSON for the current tx |
 | `/interpret` | Print the deterministic interpretation |
-| `/stats` | Show session stats (type, complexity, model tier, message count) |
+| `/stats` | Show session stats (type, complexity, model, message count) |
 | `/help` | Show help |
 | `/quit` | Exit |
 | *free text* | Ask a follow-up question about the current tx |
@@ -129,7 +129,7 @@ ZIG/
     ├── fetcher.py          # Layer 1 — RPC data fetch
     ├── normalizer.py       # Layer 2 — Raw → structured JSON
     ├── interpreter.py      # Layer 3 — Deterministic rules engine
-    ├── llm.py              # Layer 4 — Tiered LLM translation layer
+    ├── llm.py              # Layer 4 — Single-model LLM translation layer
     ├── query_engine.py     # Query Intelligence Layer (tx-aware intent gate)
     └── chat.py             # Per-TX chat session manager
 ```

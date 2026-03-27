@@ -1,33 +1,24 @@
 """
-Layer 4 — LLM Wrapper
+Layer 4 - LLM Wrapper
 
 The LLM does NOT think. It translates structured truth into human explanation.
-Uses Ollama-style /api/generate endpoint.
-
-Features:
-  - Tiered model routing: simple → fast, moderate → default, complex → powerful
-  - Model warmup on startup (preloads into GPU memory)
-  - Dynamic prompt conditioning based on query analysis
+Uses a single Ollama-style /api/generate model for all requests.
 """
 
 import json
+
 import requests
+
 from src.config import (
-    LLM_API_URL, LLM_MODEL_NAME, LLM_FAST_MODEL, LLM_POWERFUL_MODEL,
-    LLM_API_USER, LLM_API_PASSWORD,
-    LLM_TEMPERATURE, LLM_TOP_P, LLM_MAX_TOKENS, LLM_TIMEOUT,
+    LLM_API_PASSWORD,
+    LLM_API_URL,
+    LLM_API_USER,
+    LLM_MAX_TOKENS,
+    LLM_MODEL_NAME,
+    LLM_TIMEOUT,
+    LLM_TEMPERATURE,
+    LLM_TOP_P,
 )
-
-
-# ──────────────────────────────────────────────
-# Model routing
-# ──────────────────────────────────────────────
-
-MODEL_TIERS = {
-    "simple":   LLM_FAST_MODEL,
-    "moderate": LLM_MODEL_NAME,
-    "complex":  LLM_POWERFUL_MODEL,
-}
 
 
 def _get_auth() -> tuple | None:
@@ -37,57 +28,31 @@ def _get_auth() -> tuple | None:
     return None
 
 
-def _select_model(complexity: str) -> str:
-    """Select the appropriate model tier based on tx complexity."""
-    return MODEL_TIERS.get(complexity, LLM_MODEL_NAME)
-
-
-# ──────────────────────────────────────────────
-# Model warmup
-# ──────────────────────────────────────────────
-
 def warmup_models(verbose: bool = True) -> dict[str, bool]:
-    """Preload models into GPU memory by sending minimal requests.
+    """Warm only the selected production model."""
+    try:
+        payload = {
+            "model": LLM_MODEL_NAME,
+            "prompt": "hello",
+            "system": "respond with ok",
+            "stream": False,
+            "options": {"num_predict": 1},
+        }
+        resp = requests.post(
+            LLM_API_URL,
+            json=payload,
+            auth=_get_auth(),
+            timeout=30,
+        )
+        resp.raise_for_status()
+        if verbose:
+            print(f"  loaded {LLM_MODEL_NAME}")
+        return {LLM_MODEL_NAME: True}
+    except Exception as exc:
+        if verbose:
+            print(f"  failed {LLM_MODEL_NAME} ({type(exc).__name__})")
+        return {LLM_MODEL_NAME: False}
 
-    Ollama loads models lazily on first request. This forces them
-    into VRAM so the user's first real query isn't slow.
-
-    Returns a dict of {model_name: success_bool}.
-    """
-    auth = _get_auth()
-    models_to_warm = list(dict.fromkeys(MODEL_TIERS.values()))  # deduplicated, order preserved
-    results = {}
-
-    for model in models_to_warm:
-        try:
-            payload = {
-                "model": model,
-                "prompt": "hello",
-                "system": "respond with ok",
-                "stream": False,
-                "options": {"num_predict": 1},
-            }
-            resp = requests.post(
-                LLM_API_URL,
-                json=payload,
-                auth=auth,
-                timeout=30,  # warmup is just a ping, not a real query
-            )
-            resp.raise_for_status()
-            results[model] = True
-            if verbose:
-                print(f"  ✓ {model} loaded")
-        except Exception as e:
-            results[model] = False
-            if verbose:
-                print(f"  ✗ {model} failed ({type(e).__name__})")
-
-    return results
-
-
-# ──────────────────────────────────────────────
-# System prompt
-# ──────────────────────────────────────────────
 
 SYSTEM_PROMPT = """You are a blockchain transaction analysis engine for ZigChain.
 
@@ -98,7 +63,7 @@ STRICT RULES:
 1. You MUST NOT invent or assume anything not present in the data.
 2. You MUST NOT guess intent beyond what is explicitly inferable.
 3. If the transaction failed, clearly state it and explain why.
-4. Events in failed transactions are NOT final state changes — clarify this.
+4. Events in failed transactions are NOT final state changes - clarify this.
 5. Always distinguish between:
    - attempted actions
    - successful state changes
@@ -140,10 +105,6 @@ If a question is unrelated, respond:
 Do NOT break this rule."""
 
 
-# ──────────────────────────────────────────────
-# Core LLM call
-# ──────────────────────────────────────────────
-
 def call_llm(
     normalized_data: dict,
     interpretation: dict,
@@ -152,18 +113,7 @@ def call_llm(
     complexity: str = "moderate",
     prompt_directive: str = None,
 ) -> str:
-    """Call the LLM with structured tx data and get explanation.
-
-    Args:
-        normalized_data: Output of normalize_tx()
-        interpretation: Output of interpret()
-        user_question: The user's question
-        chat_history: Previous conversation messages
-        complexity: "simple" | "moderate" | "complex" — drives model selection
-        prompt_directive: Optional instruction to shape LLM response quality
-    """
-    model = _select_model(complexity)
-
+    """Call the selected LLM with structured tx data and get an explanation."""
     prompt_parts = [
         f"Transaction Data:\n{json.dumps(normalized_data, indent=2)}",
         f"\nDeterministic Analysis:\n{json.dumps(interpretation, indent=2)}",
@@ -178,11 +128,10 @@ def call_llm(
         prompt_parts.append(f"\n[System directive: {prompt_directive}]")
 
     prompt_parts.append(f"\nUser Question:\n{user_question}")
-
     full_prompt = "\n".join(prompt_parts)
 
     payload = {
-        "model": model,
+        "model": LLM_MODEL_NAME,
         "prompt": full_prompt,
         "system": SYSTEM_PROMPT,
         "stream": False,
@@ -203,12 +152,11 @@ def call_llm(
         resp.raise_for_status()
         result = resp.json()
         return result.get("response", "").strip()
-
     except requests.ConnectionError:
         return "[ERROR] Cannot reach LLM API. Check your connection and LLM_API_URL."
     except requests.Timeout:
         return "[ERROR] LLM request timed out. The model may be overloaded."
     except requests.HTTPError:
         return f"[ERROR] LLM API returned HTTP {resp.status_code}: {resp.text[:200]}"
-    except Exception as e:
-        return f"[ERROR] LLM call failed: {str(e)}"
+    except Exception as exc:
+        return f"[ERROR] LLM call failed: {str(exc)}"

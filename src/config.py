@@ -11,9 +11,7 @@ ZIGCHAIN_RPC_URL = os.getenv("ZIGCHAIN_RPC_URL", "https://kore-archive.wickhub.c
 
 # LLM API (Ollama-style)
 LLM_API_URL = os.getenv("LLM_API_URL")
-LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "qwen3:32b")
-LLM_FAST_MODEL = os.getenv("LLM_FAST_MODEL", "glm-4.7-flash:latest")
-LLM_POWERFUL_MODEL = os.getenv("LLM_POWERFUL_MODEL", "qwen3-coder-next:latest")
+LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "qwen3:8B")
 LLM_API_USER = os.getenv("LLM_API_USER")
 LLM_API_PASSWORD = os.getenv("LLM_API_PASSWORD")
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.1"))
