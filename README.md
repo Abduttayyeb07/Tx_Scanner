@@ -91,28 +91,7 @@ venv\Scripts\activate    # Windows
 
 # Install dependencies
 pip install -r requirements.txt
-```
 
-### Configuration
-
-Copy or edit the `.env` file in the project root:
-
-```env
-# ZigChain RPC endpoint
-ZIGCHAIN_RPC_URL=https://zigchain-rpc.degenter.io
-
-# LLM API (Ollama-style /api/generate endpoint)
-LLM_API_URL=http://your-llm-host:11434/api/generate
-LLM_MODEL_NAME=qwen3:32b                  # Standard tier (moderate complexity)
-LLM_FAST_MODEL=glm-4.7-flash:latest       # Fast tier (simple txs)
-LLM_POWERFUL_MODEL=qwen3-coder-next:latest # Powerful tier (complex txs)
-LLM_API_USER=                              # Optional — HTTP Basic Auth
-LLM_API_PASSWORD=                          # Optional — HTTP Basic Auth
-LLM_TEMPERATURE=0.1
-LLM_TOP_P=0.9
-LLM_MAX_TOKENS=2048
-LLM_TIMEOUT=120
-```
 
 ### Usage
 
