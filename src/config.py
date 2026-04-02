@@ -7,7 +7,7 @@ _env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(_env_path)
 
 # ZigChain RPC
-ZIGCHAIN_RPC_URL = os.getenv("ZIGCHAIN_RPC_URL", "https://kore-archive.wickhub.cc/")
+ZIGCHAIN_RPC_URL = os.getenv("ZIGCHAIN_RPC_URL", "https://cryptocomics-rpc.wickhub.cc/")
 
 # LLM API (Ollama-style)
 LLM_API_URL = os.getenv("LLM_API_URL")
